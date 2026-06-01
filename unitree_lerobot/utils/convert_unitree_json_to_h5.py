@@ -50,15 +50,31 @@ class JsonDataset:
         self.episode_paths = []
         self.task_paths = []
 
-        for task_path in glob.glob(os.path.join(self.data_dirs, "*")):
-            if os.path.isdir(task_path):
-                episode_paths = glob.glob(os.path.join(task_path, "*"))
+        if os.path.exists(os.path.join(self.data_dirs, self.json_file)):
+            self.episode_paths.append(str(self.data_dirs))
+        else:
+            for task_path in glob.glob(os.path.join(self.data_dirs, "*")):
+                if not os.path.isdir(task_path):
+                    continue
+
+                if os.path.exists(os.path.join(task_path, self.json_file)):
+                    self.episode_paths.append(task_path)
+                    continue
+
+                episode_paths = [
+                    episode_path
+                    for episode_path in glob.glob(os.path.join(task_path, "*"))
+                    if os.path.isdir(episode_path) and os.path.exists(os.path.join(episode_path, self.json_file))
+                ]
                 if episode_paths:
                     self.task_paths.append(task_path)
                     self.episode_paths.extend(episode_paths)
 
         self.episode_paths = sorted(self.episode_paths)
         self.episode_ids = list(range(len(self.episode_paths)))
+
+        if not self.episode_paths:
+            raise FileNotFoundError(f"No episodes with {self.json_file} found under {self.data_dirs}")
 
     def __len__(self) -> int:
         """Return the number of episodes in the dataset."""

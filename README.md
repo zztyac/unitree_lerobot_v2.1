@@ -55,8 +55,8 @@ git clone --recurse-submodules https://github.com/unitreerobotics/unitree_IL_ler
 git submodule update --init --recursive
 
 # Create a conda environment
-conda create -y -n unitree_lerobot python=3.10
-conda activate unitree_lerobot
+conda create -y -n unitree_lerobot_v2.1 python=3.10
+conda activate unitree_lerobot_v2.1
 conda install pinocchio -c conda-forge
 
 # Install LeRobot
@@ -146,11 +146,13 @@ Convert `Unitree JSON` Dataset to `LeRobot` Format. You can define your own `rob
 # --push_to_hub Whether or not to upload the dataset to Hugging Face Hub (true or false)
 # --robot_type  The type of the robot used in the dataset (e.g., Unitree_Z1_Single, Unitree_Z1_Dual, Unitree_G1_Dex1, Unitree_G1_Dex3, Unitree_G1_Brainco, Unitree_G1_Inspire,Unitree_G1_Dex1_Sim)
 
-python unitree_lerobot/utils/convert_unitree_json_to_lerobot.py \
-    --raw-dir $HOME/datasets \
-    --repo-id your_name/repo_task_name \
-    --robot_type Unitree_G1_Dex3 \
-    --push_to_hub
+# python unitree_lerobot/utils/convert_unitree_json_to_lerobot.py \
+#     --raw-dir $HOME/datasets \
+#     --repo-id your_name/repo_task_name \
+#     --robot_type Unitree_G1_Dex3 \
+#     --push_to_hub
+
+python unitree_lerobot/utils/convert_unitree_json_to_lerobot.py --raw_dir /mnt/data/zty/json_data/vehicle_physical_button_press --repo-id unitree/vehicle_physical_button_press --robot_type Unitree_G1_Brainco --mode image
 ```
 
 **Node:** `Unitree_G1_Dex1_Sim` is a robot type used for data collection in unitree_sim_isaaclab
