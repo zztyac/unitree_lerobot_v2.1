@@ -117,7 +117,7 @@ datasets/                               # 数据集文件夹
 
 ```bash
 python unitree_lerobot/utils/sort_and_rename_folders.py \
-        --data_dir $HOME/datasets/task_name
+        --data_dir /mnt/data/zty/json_data/vehicle_physical_button_press_ccw
 ```
 
 ### 2.3.2 🔄 转换
@@ -130,10 +130,12 @@ python unitree_lerobot/utils/sort_and_rename_folders.py \
 # --push_to_hub 是否上传到云端
 # --robot_type  对应的机器人类型
 
-python unitree_lerobot/utils/convert_unitree_json_to_lerobot.py
-    --raw-dir $HOME/datasets
-    --repo-id your_name/repo_task_name
-    --robot_type Unitree_G1_Dex3    # e.g., Unitree_Z1_Single, Unitree_Z1_Dual, Unitree_G1_Dex1, Unitree_G1_Dex3, Unitree_G1_Brainco,Unitree_G1_Dex1_Sim, Unitree_G1_Inspire
+python unitree_lerobot/utils/convert_unitree_json_to_lerobot.py \
+    --raw-dir /mnt/data/zty/json_data/vehicle_physical_button_press_ccw \
+    --repo-id unitree/vehicle_physical_button_press \
+    --robot_type Unitree_G1_Brainco   
+    
+    # e.g., Unitree_Z1_Single, Unitree_Z1_Dual, Unitree_G1_Dex1, Unitree_G1_Dex3, Unitree_G1_Brainco,Unitree_G1_Dex1_Sim, Unitree_G1_Inspire
     --push_to_hub
 ```
 

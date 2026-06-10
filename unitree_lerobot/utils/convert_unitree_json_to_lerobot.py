@@ -11,6 +11,17 @@ python unitree_lerobot/utils/convert_unitree_json_to_lerobot.py \
     --repo-id your_name/g1_grabcube_double_hand \
     --robot_type Unitree_G1_Dex3 \
     --push_to_hub
+
+
+python unitree_lerobot/utils/convert_unitree_json_to_lerobot.py \
+    --raw-dir /mnt/data/zty/json_data/vehicle_physical_button_press_ccw \
+    --repo-id unitree/vehicle_physical_button_press \
+    --robot_type Unitree_G1_Brainco   
+
+python unitree_lerobot/utils/convert_unitree_json_to_lerobot.py \
+    --raw-dir /mnt/data/zty/json_data/vehicle_physical_button_press_ccw \
+    --repo-id unitree/vehicle_physical_button_press_wo_cam_left_wrist \
+    --robot_type Unitree_G1_Brainco_wo_cam_left_wrist  
 """
 
 import os
@@ -45,7 +56,12 @@ DEFAULT_DATASET_CONFIG = DatasetConfig()
 
 
 class JsonDataset:
-    def __init__(self, data_dirs: Path, robot_type: str) -> None:
+    def __init__(
+        self,
+        data_dirs: Path,
+        robot_type: str,
+        skip_invalid_episodes: bool = False,
+    ) -> None:
         """
         Initialize the dataset for loading and processing HDF5 files containing robot manipulation data.
 
@@ -56,6 +72,7 @@ class JsonDataset:
         assert robot_type is not None, "Robot type cannot be None"
         self.data_dirs = data_dirs
         self.json_file = "data.json"
+        self.skip_invalid_episodes = skip_invalid_episodes
 
         # Initialize paths and cache
         self._init_paths()
@@ -104,12 +121,46 @@ class JsonDataset:
         """Initialize data cache if enabled."""
 
         self.episodes_data_cached = []
+        valid_episode_paths = []
+        skipped_episode_paths = []
         for episode_path in tqdm.tqdm(self.episode_paths, desc="Loading Cache Json"):
             json_path = os.path.join(episode_path, self.json_file)
-            with open(json_path, encoding="utf-8") as jsonf:
-                self.episodes_data_cached.append(json.load(jsonf))
+            try:
+                with open(json_path, encoding="utf-8") as jsonf:
+                    episode_data = json.load(jsonf)
+            except json.JSONDecodeError as exc:
+                message = (
+                    f"Invalid JSON file {json_path}: {exc.msg} "
+                    f"(line {exc.lineno}, column {exc.colno}, char {exc.pos})"
+                )
+                if not self.skip_invalid_episodes:
+                    raise ValueError(message) from exc
+
+                tqdm.tqdm.write(f"WARNING: Skipping {message}")
+                skipped_episode_paths.append(episode_path)
+                continue
+
+            if not episode_data.get("data"):
+                message = f"Episode file {json_path} has no frames in its 'data' array"
+                if not self.skip_invalid_episodes:
+                    raise ValueError(message)
+
+                tqdm.tqdm.write(f"WARNING: Skipping {message}")
+                skipped_episode_paths.append(episode_path)
+                continue
+
+            self.episodes_data_cached.append(episode_data)
+            valid_episode_paths.append(episode_path)
+
+        self.episode_paths = valid_episode_paths
+        self.episode_ids = list(range(len(self.episode_paths)))
+
+        if not self.episode_paths:
+            raise ValueError(f"No valid episodes found under {self.data_dirs}")
 
         print(f"==> Cached {len(self.episodes_data_cached)} episodes")
+        if skipped_episode_paths:
+            print(f"==> Skipped {len(skipped_episode_paths)} invalid or empty episodes")
 
         return self.episodes_data_cached
 
@@ -300,8 +351,14 @@ def populate_dataset(
     dataset: LeRobotDataset,
     raw_dir: Path,
     robot_type: str,
+    *,
+    skip_invalid_episodes: bool = False,
 ) -> LeRobotDataset:
-    json_dataset = JsonDataset(raw_dir, robot_type)
+    json_dataset = JsonDataset(
+        raw_dir,
+        robot_type,
+        skip_invalid_episodes=skip_invalid_episodes,
+    )
     for i in tqdm.tqdm(range(len(json_dataset))):
         episode = json_dataset.get_item(i)
 
@@ -335,6 +392,7 @@ def json_to_lerobot(
     *,
     push_to_hub: bool = False,
     mode: Literal["video", "image"] = "video",
+    skip_invalid_episodes: bool = False,
     dataset_config: DatasetConfig = DEFAULT_DATASET_CONFIG,
 ):
     if (HF_LEROBOT_HOME / repo_id).exists():
@@ -352,6 +410,7 @@ def json_to_lerobot(
         dataset,
         raw_dir,
         robot_type=robot_type,
+        skip_invalid_episodes=skip_invalid_episodes,
     )
 
     if push_to_hub:

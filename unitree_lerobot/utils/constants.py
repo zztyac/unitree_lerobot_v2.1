@@ -207,18 +207,35 @@ G1_BRAINCO_CONFIG = RobotConfig(
     ],
     cameras=[
         "cam_left_high",
-        "cam_right_high",
         "cam_left_wrist",
+        "cam_right_wrist",
+        "cam_right_high",
+    ],
+    camera_to_image_key={
+        "color_0": "cam_left_high",
+        "color_1": "cam_left_wrist",
+        "color_2": "cam_right_wrist",
+        "color_3": "cam_right_high",
+    },
+    json_state_data_name=["left_arm.qpos", "right_arm.qpos", "left_ee.qpos", "right_ee.qpos"],
+    json_action_data_name=["left_arm.qpos", "right_arm.qpos", "left_ee.qpos", "right_ee.qpos"],
+)
+
+
+G1_BRAINCO_WO_CAM_LEFT_WRIST_CONFIG = RobotConfig(
+    motors=G1_BRAINCO_CONFIG.motors,
+    cameras=[
+        "cam_left_high",
+        "cam_right_high",
         "cam_right_wrist",
     ],
     camera_to_image_key={
         "color_0": "cam_left_high",
-        "color_1": "cam_right_high",
-        "color_2": "cam_left_wrist",
-        "color_3": "cam_right_wrist",
+        "color_2": "cam_right_wrist",
+        "color_3": "cam_right_high",
     },
-    json_state_data_name=["left_arm.qpos", "right_arm.qpos", "left_ee.qpos", "right_ee.qpos"],
-    json_action_data_name=["left_arm.qpos", "right_arm.qpos", "left_ee.qpos", "right_ee.qpos"],
+    json_state_data_name=G1_BRAINCO_CONFIG.json_state_data_name,
+    json_action_data_name=G1_BRAINCO_CONFIG.json_action_data_name,
 )
 
 
@@ -474,6 +491,7 @@ ROBOT_CONFIGS = {
     "Unitree_G1_Dex1_Sim": G1_DEX1_CONFIG_SIM,
     "Unitree_G1_Dex3": G1_DEX3_CONFIG,
     "Unitree_G1_Brainco": G1_BRAINCO_CONFIG,
+    "Unitree_G1_Brainco_wo_cam_left_wrist": G1_BRAINCO_WO_CAM_LEFT_WRIST_CONFIG,
     "Unitree_G1_Inspire": G1_INSPIRE_CONFIG,
     "Unitree_G1_MoveibleLift_Dex1_UseWaist": MOVEIBLE_LIFT_G1_DEX1_USEWAIST_CONFIG,
     "Unitree_G1_MoveibleLift_Dex1_NoUseWaist": MOVEIBLE_LIFT_G1_DEX1_NOUSEWAIST_CONFIG,
