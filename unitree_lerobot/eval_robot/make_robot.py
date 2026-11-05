@@ -167,7 +167,13 @@ def setup_robot_interface(args: argparse.Namespace) -> dict[str, Any]:
     arm_spec = ARM_CONFIG[args.arm]
     arm_ik = arm_spec["ik_solver"]()
     is_sim = getattr(args, "sim", False)
-    arm_ctrl = arm_spec["controller"](motion_mode=args.motion, simulation_mode=is_sim)
+    arm_kwargs = {"motion_mode": args.motion, "simulation_mode": is_sim}
+    initial_body_q = getattr(args, "initial_body_q", None)
+    if initial_body_q is not None:
+        if args.arm != "G1_29":
+            raise ValueError("Leg/waist restoration is supported only for G1_29")
+        arm_kwargs.update(initial_body_q=initial_body_q, body_ramp_duration_s=args.body_ramp_duration_s)
+    arm_ctrl = arm_spec["controller"](**arm_kwargs)
 
     # ---------- End Effector (optional) ----------
     ee_ctrl, ee_shared_mem, ee_dof = None, {}, 0

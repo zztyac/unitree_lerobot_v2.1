@@ -19,9 +19,14 @@ python unitree_lerobot/utils/convert_unitree_json_to_lerobot.py \
     --robot_type Unitree_G1_Brainco   
 
 python unitree_lerobot/utils/convert_unitree_json_to_lerobot.py \
-    --raw-dir /mnt/data/zty/json_data/vehicle_physical_button_press_ccw \
-    --repo-id unitree/vehicle_physical_button_press_wo_cam_left_wrist \
+    --raw-dir /mnt/data/zty/json_data/vehicle_physical_button_press_zty \
+    --repo-id unitree/vehicle_physical_button_press_wo_cam_left_wrist_new \
     --robot_type Unitree_G1_Brainco_wo_cam_left_wrist  
+
+python unitree_lerobot/utils/convert_unitree_json_to_lerobot.py \
+    --raw-dir /mnt/data/zty/json_data/trunk_open\
+    --repo-id unitree/trunk_open_wo_cam_left_wrist_new \
+    --robot_type Unitree_G1_Brainco_wo_cam_left_wrist   
 """
 
 import os
@@ -39,6 +44,7 @@ from typing import Literal
 
 from lerobot.constants import HF_LEROBOT_HOME
 from lerobot.datasets.lerobot_dataset import LeRobotDataset
+
 
 from unitree_lerobot.utils.constants import ROBOT_CONFIGS
 

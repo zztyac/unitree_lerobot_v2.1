@@ -222,6 +222,18 @@ G1_BRAINCO_CONFIG = RobotConfig(
 )
 
 
+# Monocular head camera and both wrist cameras from xr_teleoperate.
+G1_BRAINCO_3CAM_CONFIG = dataclasses.replace(
+    G1_BRAINCO_CONFIG,
+    cameras=["cam_left_high", "cam_left_wrist", "cam_right_wrist"],
+    camera_to_image_key={
+        "color_0": "cam_left_high",
+        "color_1": "cam_left_wrist",
+        "color_2": "cam_right_wrist",
+    },
+)
+
+
 G1_BRAINCO_WO_CAM_LEFT_WRIST_CONFIG = RobotConfig(
     motors=G1_BRAINCO_CONFIG.motors,
     cameras=[
@@ -491,6 +503,7 @@ ROBOT_CONFIGS = {
     "Unitree_G1_Dex1_Sim": G1_DEX1_CONFIG_SIM,
     "Unitree_G1_Dex3": G1_DEX3_CONFIG,
     "Unitree_G1_Brainco": G1_BRAINCO_CONFIG,
+    "Unitree_G1_Brainco_3cam": G1_BRAINCO_3CAM_CONFIG,
     "Unitree_G1_Brainco_wo_cam_left_wrist": G1_BRAINCO_WO_CAM_LEFT_WRIST_CONFIG,
     "Unitree_G1_Inspire": G1_INSPIRE_CONFIG,
     "Unitree_G1_MoveibleLift_Dex1_UseWaist": MOVEIBLE_LIFT_G1_DEX1_USEWAIST_CONFIG,

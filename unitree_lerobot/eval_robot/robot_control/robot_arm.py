@@ -20,6 +20,11 @@ kTopicLowCommand_Motion = "rt/arm_sdk"
 kTopicLowState = "rt/lowstate"
 
 G1_29_Num_Motors = 35
+
+# Match the collection controller for the 12 leg and 3 waist joints only.
+# Source: xr_teleoperate_shu/teleop/robot_control/robot_arm.py.
+G1_29_INITIAL_BODY_KP = (60.0, 60.0, 60.0, 100.0, 40.0, 40.0, 60.0, 60.0, 60.0, 100.0, 40.0, 40.0, 60.0, 40.0, 40.0)
+G1_29_INITIAL_BODY_KD = (1.0, 1.0, 1.0, 2.0, 1.0, 1.0, 1.0, 1.0, 1.0, 2.0, 1.0, 1.0, 1.0, 1.0, 1.0)
 G1_23_Num_Motors = 35
 H1_2_Num_Motors = 35
 H1_Num_Motors = 20
@@ -66,8 +71,19 @@ class DataBuffer:
 
 
 class G1_29_ArmController:
-    def __init__(self, motion_mode=False, simulation_mode=False):
+    def __init__(self, motion_mode=False, simulation_mode=False, initial_body_q=None, body_ramp_duration_s=6.0):
         logger_mp.info("Initialize G1_29_ArmController...")
+        self.initial_body_q = None
+        if initial_body_q is not None:
+            body_q = np.asarray(initial_body_q, dtype=np.float64)
+            if body_q.shape != (15,) or not np.isfinite(body_q).all():
+                raise ValueError("G1_29 initial_body_q must contain 15 finite leg/waist joint values")
+            if motion_mode:
+                raise ValueError("Restoring legs/waist requires debug mode, not motion_mode")
+            if not np.isfinite(body_ramp_duration_s) or body_ramp_duration_s <= 0:
+                raise ValueError("body_ramp_duration_s must be positive and finite")
+            self.initial_body_q = body_q.copy()
+        self.body_ramp_duration_s = body_ramp_duration_s
         self.q_target = np.zeros(14)
         self.tauff_target = np.zeros(14)
         self.motion_mode = motion_mode
@@ -119,14 +135,24 @@ class G1_29_ArmController:
         self.msg.mode_machine = self.get_mode_machine()
 
         self.all_motor_q = self.get_current_motor_q()
+        if self.initial_body_q is not None:
+            # Hold measured arms until full-body initialization sends its arm target.
+            self.q_target = self.get_current_dual_arm_q().copy()
+        self._body_ramp_start_q = self.all_motor_q[:15].copy()
         logger_mp.info(f"Current all body motor state q:\n{self.all_motor_q} \n")
         logger_mp.info(f"Current two arms motor state q:\n{self.get_current_dual_arm_q()}\n")
-        logger_mp.info("Lock all joints except two arms...\n")
+        if self.initial_body_q is None:
+            logger_mp.info("Lock all joints except two arms...\n")
+        else:
+            logger_mp.info("Initialize leg/waist restoration and hold measured arms until an arm target arrives.")
 
         arm_indices = {member.value for member in G1_29_JointArmIndex}
         for id in G1_29_JointIndex:
             self.msg.motor_cmd[id].mode = 1
-            if id.value in arm_indices:
+            if self.initial_body_q is not None and id.value < 15:
+                self.msg.motor_cmd[id].kp = G1_29_INITIAL_BODY_KP[id.value]
+                self.msg.motor_cmd[id].kd = G1_29_INITIAL_BODY_KD[id.value]
+            elif id.value in arm_indices:
                 if self._Is_wrist_motor(id):
                     self.msg.motor_cmd[id].kp = self.kp_wrist
                     self.msg.motor_cmd[id].kd = self.kd_wrist
@@ -141,11 +167,14 @@ class G1_29_ArmController:
                     self.msg.motor_cmd[id].kp = self.kp_high
                     self.msg.motor_cmd[id].kd = self.kd_high
             self.msg.motor_cmd[id].q = self.all_motor_q[id]
+        if self.initial_body_q is not None:
+            logger_mp.info("Restoring leg/waist joints over %.1f seconds with collection leg/waist gains", self.body_ramp_duration_s)
         logger_mp.info("Lock OK!\n")
 
         # initialize publish thread
         self.publish_thread = threading.Thread(target=self._ctrl_motor_state)
         self.ctrl_lock = threading.Lock()
+        self._body_ramp_start_time = time.monotonic()
         self.publish_thread.daemon = True
         self.publish_thread.start()
 
@@ -169,6 +198,13 @@ class G1_29_ArmController:
         clipped_arm_q_target = current_q + delta / max(motion_scale, 1.0)
         return clipped_arm_q_target
 
+    def initial_body_command(self, now):
+        """Interpolate saved leg/waist targets and hold after the ramp completes."""
+        if self.initial_body_q is None:
+            return None
+        ratio = np.clip((now - self._body_ramp_start_time) / self.body_ramp_duration_s, 0.0, 1.0)
+        return self._body_ramp_start_q + ratio * (self.initial_body_q - self._body_ramp_start_q)
+
     def _ctrl_motor_state(self):
         if self.motion_mode:
             self.msg.motor_cmd[G1_29_JointIndex.kNotUsedJoint0].q = 1.0
@@ -189,6 +225,13 @@ class G1_29_ArmController:
                 self.msg.motor_cmd[id].q = clipped_arm_q_target[idx]
                 self.msg.motor_cmd[id].dq = 0
                 self.msg.motor_cmd[id].tau = arm_tauff_target[idx]
+
+            body_command = self.initial_body_command(time.monotonic())
+            if body_command is not None:
+                for joint in range(15):
+                    self.msg.motor_cmd[joint].q = body_command[joint]
+                    self.msg.motor_cmd[joint].dq = 0
+                    self.msg.motor_cmd[joint].tau = 0
 
             self.msg.crc = self.crc.Crc(self.msg)
             self.lowcmd_publisher.Write(self.msg)
