@@ -173,6 +173,8 @@ def setup_robot_interface(args: argparse.Namespace) -> dict[str, Any]:
         if args.arm != "G1_29":
             raise ValueError("Leg/waist restoration is supported only for G1_29")
         arm_kwargs.update(initial_body_q=initial_body_q, body_ramp_duration_s=args.body_ramp_duration_s)
+        if getattr(args, "hold_measured_legs", False):
+            arm_kwargs.update(hold_measured_legs=True)
     arm_ctrl = arm_spec["controller"](**arm_kwargs)
 
     # ---------- End Effector (optional) ----------

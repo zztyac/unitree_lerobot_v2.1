@@ -71,7 +71,8 @@ class DataBuffer:
 
 
 class G1_29_ArmController:
-    def __init__(self, motion_mode=False, simulation_mode=False, initial_body_q=None, body_ramp_duration_s=6.0):
+    def __init__(self, motion_mode=False, simulation_mode=False, initial_body_q=None, body_ramp_duration_s=6.0,
+                 hold_measured_legs=False):
         logger_mp.info("Initialize G1_29_ArmController...")
         self.initial_body_q = None
         if initial_body_q is not None:
@@ -139,6 +140,14 @@ class G1_29_ArmController:
             # Hold measured arms until full-body initialization sends its arm target.
             self.q_target = self.get_current_dual_arm_q().copy()
         self._body_ramp_start_q = self.all_motor_q[:15].copy()
+        # 坐姿下腿被座椅和地面约束，保存的腿部目标通常到不了；此时保持启动时实测的腿部角度，
+        # 只把腰部恢复到保存目标，避免腿部电机持续顶着地面用力。
+        self.held_leg_q = None
+        if self.initial_body_q is not None and hold_measured_legs:
+            self.held_leg_q = self._body_ramp_start_q[:12].copy()
+            deviation = float(np.max(np.abs(self.held_leg_q - self.initial_body_q[:12])))
+            self.initial_body_q[:12] = self.held_leg_q
+            logger_mp.info("Holding measured seated leg posture; max deviation from saved legs = %.4f rad", deviation)
         logger_mp.info(f"Current all body motor state q:\n{self.all_motor_q} \n")
         logger_mp.info(f"Current two arms motor state q:\n{self.get_current_dual_arm_q()}\n")
         if self.initial_body_q is None:
