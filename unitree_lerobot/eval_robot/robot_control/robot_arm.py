@@ -136,9 +136,9 @@ class G1_29_ArmController:
         self.msg.mode_machine = self.get_mode_machine()
 
         self.all_motor_q = self.get_current_motor_q()
-        if self.initial_body_q is not None:
-            # Hold measured arms until full-body initialization sends its arm target.
-            self.q_target = self.get_current_dual_arm_q().copy()
+        # Always start by holding the measured arms. A zero target would swing both arms toward
+        # all-zero joints the moment the publish thread starts (dangerous in motion mode / standing).
+        self.q_target = self.get_current_dual_arm_q().copy()
         self._body_ramp_start_q = self.all_motor_q[:15].copy()
         # 坐姿下腿被座椅和地面约束，保存的腿部目标通常到不了；此时保持启动时实测的腿部角度，
         # 只把腰部恢复到保存目标，避免腿部电机持续顶着地面用力。
@@ -255,6 +255,17 @@ class G1_29_ArmController:
             time.sleep(sleep_time)
             # logger_mp.debug(f"arm_velocity_limit:{self.arm_velocity_limit}")
             # logger_mp.debug(f"sleep_time:{sleep_time}")
+
+    def release_motion_control(self, duration_s=2.0):
+        """Motion mode: ramp the arm_sdk weight 1 -> 0 so the motion controller smoothly takes the arms back."""
+        if not self.motion_mode:
+            return False
+        steps = max(1, int(round(duration_s / 0.02)))
+        for weight in np.linspace(1.0, 0.0, num=steps + 1):
+            self.msg.motor_cmd[G1_29_JointIndex.kNotUsedJoint0].q = float(weight)
+            time.sleep(duration_s / steps)
+        logger_mp.info("[G1_29_ArmController] arm_sdk weight ramped to 0; arms returned to the motion controller.")
+        return True
 
     def ctrl_dual_arm(self, q_target, tauff_target):
         """Set control target values q & tau of the left and right arm motors."""
